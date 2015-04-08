@@ -17,7 +17,6 @@
 
 #define REQUIRED_NUMBER_OF_CMD_ARGUMENTS 3
 #define NAME_MAX_LENGTH 20
-#define MAX_BYTE_TO_SEND 128
 
 int processServerResponse(int socketfd) {
 	int recv_bytes;
@@ -54,7 +53,7 @@ int processServerResponse(int socketfd) {
 	if (len_of_joke < strlen(message)) {
 		char joke_part[len_of_joke];
 		strncpy(joke_part, message, len_of_joke);
-		joke_part[len_of_joke + 1] = '\0';
+		joke_part[len_of_joke] = '\0';
 		printf("joke: %s\n", joke_part);
 	} else {
 		printf("joke: %s\n", message);
@@ -64,11 +63,18 @@ int processServerResponse(int socketfd) {
 	return 0;
 }
 
+char* removeNewLine(char *s) {
+	int len = strlen(s);
+	if (len > 0 && s[len - 1] == '\n') {
+		s[len - 1] = '\0';
+	}
+	return s;
+}
+
 int main(int argc, char *argv[]) {
 	//connecion data
 	int socketfd;
 	int bytes_sent;
-	int bytes_to_send;
 
 	//exchange data
 	char first_name[NAME_MAX_LENGTH];
@@ -83,12 +89,15 @@ int main(int argc, char *argv[]) {
 
 	//request the first name and last name
 	printf("Please, enter your first name: ");
-	scanf("%s", first_name);
-	printf("Please, enter your last name: ");
-	scanf("%s", last_name);
+	char *first_name_pointer = fgets(first_name, NAME_MAX_LENGTH, stdin);
+	first_name_pointer = removeNewLine(first_name_pointer);
 
-	uint8_t first_name_length = strlen(first_name);
-	uint8_t second_name_length = strlen(last_name);
+	printf("Please, enter your last name: ");
+	char *last_name_pointer = fgets(last_name, NAME_MAX_LENGTH, stdin);
+	last_name_pointer = removeNewLine(last_name_pointer);
+
+	uint8_t first_name_length = strlen(first_name_pointer);
+	uint8_t second_name_length = strlen(last_name_pointer);
 	request_struct_size = sizeof(struct request_header);
 	int buffer_size = request_struct_size + first_name_length + second_name_length;
 	char buffer[buffer_size];
@@ -100,12 +109,17 @@ int main(int argc, char *argv[]) {
 
 	char * payload = buffer + request_struct_size;
 
-	strncpy(payload, first_name, first_name_length + 1);
-	strcat(payload, last_name);
+	strncpy(payload, first_name_pointer, first_name_length + 1);
+	strcat(payload, last_name_pointer);
 
 	socketfd = setupsocket(argv);
 	if (socketfd != -1) {
 		bytes_sent = send(socketfd, buffer, buffer_size, 0);
+		if (bytes_sent == -1) {
+			close(socketfd);
+			fprintf(stderr, "No bytes have been sent.\n");
+			return 1;
+		}
 		if (processServerResponse(socketfd) != 0) {
 			return 1;	//error in processing response
 		}
