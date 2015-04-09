@@ -17,15 +17,10 @@
 
 #define REQUIRED_NUMBER_OF_CMD_ARGUMENTS 3
 #define NAME_MAX_LENGTH 20
+#define MAX_BUF_SIZE_FOR_JOKE 1024
+#define PROCESS_SERVER_RESPONSE_ERROR -1
 
-int processServerResponse(int socketfd) {
-	int recv_bytes;
-	uint32_t len_of_joke = 0;
-	char response_buffer[1000];
-
-	//get the length of a joke from the server
-	recv_bytes = recvtimeout(socketfd, response_buffer, sizeof(response_buffer));
-
+int printErrorAndCloseSocket(int recv_bytes, int socketfd) {
 	if (recv_bytes == ERROR_RESULT) {
 		close(socketfd);
 		fprintf(stderr, "Error during data receive.\n");
@@ -38,28 +33,67 @@ int processServerResponse(int socketfd) {
 		close(socketfd);
 		fprintf(stderr, "Could not get the socket option.\n");
 		return -1;
+	} else if (recv_bytes == 0) {
+		close(socketfd);
+		fprintf(stderr, "Connection was closed.\n");
+		return -1;
 	}
 
-	struct response_header * ans = (response_header *) response_buffer;
+	return 0;
+}
+
+int processServerResponse(int socketfd) {
+	int recv_bytes;
+	int left_bytes_to_read;
+	int total_recv_bytes_for_header = 0;
+	uint32_t len_of_joke = 0;
+	int response_header_struct_size = sizeof(response_header);
+	char header_buffer[5];
+	char* chunk_response_header_buffer = header_buffer;
+
+	char *total_response_header_buffer = (char *) malloc(response_header_struct_size);
+
+	//get the length of a joke from the server
+	do {
+		left_bytes_to_read = response_header_struct_size - total_recv_bytes_for_header;
+		recv_bytes = recvtimeout(socketfd, chunk_response_header_buffer, left_bytes_to_read);
+		if (printErrorAndCloseSocket(recv_bytes, socketfd) == -1) {
+			return PROCESS_SERVER_RESPONSE_ERROR;
+		}
+		total_recv_bytes_for_header += recv_bytes;
+		memcpy(total_response_header_buffer, chunk_response_header_buffer, recv_bytes);
+		chunk_response_header_buffer += recv_bytes;
+	} while (total_recv_bytes_for_header < response_header_struct_size);
+
+	struct response_header * ans = (response_header *) total_response_header_buffer;
 	if (ans->type != JOKER_RESPONSE_TYPE) {
 		close(socketfd);
 		fprintf(stderr, "Response is of a different type.\n");
-		return -1;
+		return PROCESS_SERVER_RESPONSE_ERROR;
 	}
 	len_of_joke = ntohl(ans->joke_length);
-	char *message = response_buffer + sizeof(response_header);
 
-	//if server sends more than just a joke
-	if (len_of_joke < strlen(message)) {
-		char joke_part[len_of_joke];
-		strncpy(joke_part, message, len_of_joke);
-		joke_part[len_of_joke] = '\0';
-		printf("joke: %s\n", joke_part);
-	} else {
-		printf("joke: %s\n", message);
-	}
+	//get the joke from the server
+	int total_recv_bytes_for_joke = 0;
+	int recv_bytes_for_joke;
+	char buffer[MAX_BUF_SIZE_FOR_JOKE];
+	char* response_buffer = buffer;
+	char response_joke_buf[MAX_BUF_SIZE_FOR_JOKE];
+	response_joke_buf[0] = '\0';
+	do {
+		left_bytes_to_read = len_of_joke - total_recv_bytes_for_joke;
+		recv_bytes_for_joke = recvtimeout(socketfd, response_buffer, left_bytes_to_read);
+		if (printErrorAndCloseSocket(recv_bytes_for_joke, socketfd) == -1) {
+			return PROCESS_SERVER_RESPONSE_ERROR;
+		}
+		total_recv_bytes_for_joke += recv_bytes_for_joke;
+		response_buffer[recv_bytes_for_joke] = '\0';
+		strcat(response_joke_buf, response_buffer);
+		response_buffer += recv_bytes_for_joke;
+	} while (total_recv_bytes_for_joke < len_of_joke && total_recv_bytes_for_joke < MAX_BUF_SIZE_FOR_JOKE);
+
+	printf("The whole joke: %s\n", response_joke_buf);
 	close(socketfd);
-
 	return 0;
 }
 

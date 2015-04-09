@@ -81,7 +81,7 @@ int recvtimeout(int socketfd, char *buf, int len) {
 	FD_SET(socketfd, &fds);
 
 	//retrieve timeout from options
-	socklen_t socket_option_timeout_len;
+	socklen_t socket_option_timeout_len = sizeof(struct timeval);
 	getsockopt_result = getsockopt(socketfd, SOL_SOCKET, SO_RCVTIMEO, (char *) &tv, &socket_option_timeout_len);
 
 	if (getsockopt_result != 0) {
