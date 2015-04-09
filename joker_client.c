@@ -24,72 +24,66 @@ int printErrorAndCloseSocket(int recv_bytes, int socketfd) {
 	if (recv_bytes == ERROR_RESULT) {
 		close(socketfd);
 		fprintf(stderr, "Error during data receive.\n");
-		return -1;
+		return PROCESS_SERVER_RESPONSE_ERROR;
 	} else if (recv_bytes == TIMEOUT_RESULT) {
 		close(socketfd);
 		fprintf(stderr, "Timeout when receiving response.\n");
-		return -1;
+		return PROCESS_SERVER_RESPONSE_ERROR;
 	} else if (recv_bytes == GETSOCKOPT_ERROR) {
 		close(socketfd);
 		fprintf(stderr, "Could not get the socket option.\n");
-		return -1;
-	} else if (recv_bytes == 0) {
+		return PROCESS_SERVER_RESPONSE_ERROR;
+	} else if (recv_bytes == CONNECTION_CLOSED_ERROR) {
 		close(socketfd);
 		fprintf(stderr, "Connection was closed.\n");
-		return -1;
+		return PROCESS_SERVER_RESPONSE_ERROR;
 	}
 
 	return 0;
 }
 
 int processServerResponse(int socketfd) {
-	int recv_bytes;
-	int left_bytes_to_read;
-	int total_recv_bytes_for_header = 0;
+	//header response data
+	int recv_bytes_for_header;
 	uint32_t len_of_joke = 0;
 	int response_header_struct_size = sizeof(response_header);
-	char header_buffer[5];
-	char* chunk_response_header_buffer = header_buffer;
-
 	char *total_response_header_buffer = (char *) malloc(response_header_struct_size);
+	struct response_header * ans;
+
+	//joke response data
+	uint32_t total_recv_bytes_for_joke = 0;
+	int left_bytes_to_read = 0;
+	int recv_bytes_for_joke;
+	char buffer[MAX_BUF_SIZE_FOR_JOKE];
+	char* chunk_response_joke_buffer = buffer;
+	char response_joke_buf[MAX_BUF_SIZE_FOR_JOKE];
+	response_joke_buf[0] = '\0';
 
 	//get the length of a joke from the server
-	do {
-		left_bytes_to_read = response_header_struct_size - total_recv_bytes_for_header;
-		recv_bytes = recvtimeout(socketfd, chunk_response_header_buffer, left_bytes_to_read);
-		if (printErrorAndCloseSocket(recv_bytes, socketfd) == -1) {
-			return PROCESS_SERVER_RESPONSE_ERROR;
-		}
-		total_recv_bytes_for_header += recv_bytes;
-		memcpy(total_response_header_buffer, chunk_response_header_buffer, recv_bytes);
-		chunk_response_header_buffer += recv_bytes;
-	} while (total_recv_bytes_for_header < response_header_struct_size);
+	recv_bytes_for_header = recvtimeout(socketfd, total_response_header_buffer, response_header_struct_size);
+	if (printErrorAndCloseSocket(recv_bytes_for_header, socketfd) == -1) {
+		return PROCESS_SERVER_RESPONSE_ERROR;
+	}
 
-	struct response_header * ans = (response_header *) total_response_header_buffer;
-	if (ans->type != JOKER_RESPONSE_TYPE) {
+	ans = (response_header *) total_response_header_buffer;
+	if (recv_bytes_for_header < response_header_struct_size || ans->type != JOKER_RESPONSE_TYPE) {
 		close(socketfd);
-		fprintf(stderr, "Response is of a different type.\n");
+		fprintf(stderr, "A server did not respond with the proper header.\n");
 		return PROCESS_SERVER_RESPONSE_ERROR;
 	}
 	len_of_joke = ntohl(ans->joke_length);
 
 	//get the joke from the server
-	int total_recv_bytes_for_joke = 0;
-	int recv_bytes_for_joke;
-	char buffer[MAX_BUF_SIZE_FOR_JOKE];
-	char* response_buffer = buffer;
-	char response_joke_buf[MAX_BUF_SIZE_FOR_JOKE];
-	response_joke_buf[0] = '\0';
 	do {
 		left_bytes_to_read = len_of_joke - total_recv_bytes_for_joke;
-		recv_bytes_for_joke = recvtimeout(socketfd, response_buffer, left_bytes_to_read);
-		if (printErrorAndCloseSocket(recv_bytes_for_joke, socketfd) == -1) {
+		recv_bytes_for_joke = recvtimeout(socketfd, chunk_response_joke_buffer, left_bytes_to_read);
+		if (printErrorAndCloseSocket(recv_bytes_for_joke, socketfd) == PROCESS_SERVER_RESPONSE_ERROR) {
 			return PROCESS_SERVER_RESPONSE_ERROR;
 		}
 		total_recv_bytes_for_joke += recv_bytes_for_joke;
-		response_buffer[recv_bytes_for_joke] = '\0';
-		strcat(response_joke_buf, response_buffer);
-		response_buffer += recv_bytes_for_joke;
+		chunk_response_joke_buffer[recv_bytes_for_joke] = '\0';
+		strcat(response_joke_buf, chunk_response_joke_buffer);
+		chunk_response_joke_buffer += recv_bytes_for_joke;
 	} while (total_recv_bytes_for_joke < len_of_joke && total_recv_bytes_for_joke < MAX_BUF_SIZE_FOR_JOKE);
 
 	printf("The whole joke: %s\n", response_joke_buf);

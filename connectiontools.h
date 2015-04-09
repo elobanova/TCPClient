@@ -18,6 +18,7 @@
 #define GETSOCKOPT_ERROR -3
 #define TIMEOUT_RESULT -2
 #define ERROR_RESULT -1
+#define CONNECTION_CLOSED_ERROR 0
 #define TIMEOUT_VALUE_SEC 3
 
 int setupsocket(char *argv[]) {
