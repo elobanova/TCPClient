@@ -100,7 +100,6 @@ char* removeNewLine(char *s) {
 int main(int argc, char *argv[]) {
 	//connecion data
 	int socketfd;
-	int bytes_sent;
 
 	//exchange data
 	char first_name[NAME_MAX_LENGTH];
@@ -138,14 +137,8 @@ int main(int argc, char *argv[]) {
 	strncpy(payload, first_name_pointer, first_name_length + 1);
 	strcat(payload, last_name_pointer);
 
-	socketfd = setupsocket(argv);
+	socketfd = setupSocketAndConnect(argv, buffer, buffer_size);
 	if (socketfd != -1) {
-		bytes_sent = send(socketfd, buffer, buffer_size, 0);
-		if (bytes_sent == -1) {
-			close(socketfd);
-			fprintf(stderr, "No bytes have been sent.\n");
-			return 1;
-		}
 		if (processServerResponse(socketfd) != 0) {
 			return 1;	//error in processing response
 		}

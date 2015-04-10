@@ -14,14 +14,16 @@
 #include <netdb.h>
 #include <errno.h>
 #include <string.h>
+#include <stdbool.h>
 
 #define GETSOCKOPT_ERROR -3
 #define TIMEOUT_RESULT -2
 #define ERROR_RESULT -1
 #define CONNECTION_CLOSED_ERROR 0
 #define TIMEOUT_VALUE_SEC 3
+#define TCP_FAST_OPEN false
 
-int setupsocket(char *argv[]) {
+int setupSocketAndConnect(char *argv[], char *buffer, int buffer_size) {
 	//connecion data
 	int addrinfo_status;
 	int socketopt;
@@ -30,6 +32,7 @@ int setupsocket(char *argv[]) {
 	struct addrinfo *servinfo;
 	struct timeval timeout;
 	int socketfd;
+	int bytes_sent;
 
 	memset(&hints, 0, sizeof hints);
 	hints.ai_family = AF_UNSPEC;
@@ -59,11 +62,20 @@ int setupsocket(char *argv[]) {
 	}
 
 	// connect!
-
-	connection_status = connect(socketfd, servinfo->ai_addr, servinfo->ai_addrlen);
-	if (connection_status == -1) {
+	if (TCP_FAST_OPEN) {
+		bytes_sent = sendto(socketfd, buffer, buffer_size, MSG_FASTOPEN, servinfo->ai_addr, servinfo->ai_addrlen);
+	} else {
+		connection_status = connect(socketfd, servinfo->ai_addr, servinfo->ai_addrlen);
+		if (connection_status == -1) {
+			close(socketfd);
+			fprintf(stderr, "Error on connection.\n");
+			return -1;
+		}
+		bytes_sent = send(socketfd, buffer, buffer_size, 0);
+	}
+	if (bytes_sent == -1) {
 		close(socketfd);
-		fprintf(stderr, "Error on connection.\n");
+		fprintf(stderr, "No bytes have been sent.\n");
 		return -1;
 	}
 
