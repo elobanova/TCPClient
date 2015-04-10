@@ -46,9 +46,7 @@ int processServerResponse(int socketfd) {
 	//header response data
 	int recv_bytes_for_header;
 	uint32_t len_of_joke = 0;
-	int response_header_struct_size = sizeof(response_header);
-	char *total_response_header_buffer = (char *) malloc(response_header_struct_size);
-	struct response_header * ans;
+	struct response_header joke_header;
 
 	//joke response data
 	uint32_t total_recv_bytes_for_joke = 0;
@@ -60,18 +58,18 @@ int processServerResponse(int socketfd) {
 	response_joke_buf[0] = '\0';
 
 	//get the length of a joke from the server
-	recv_bytes_for_header = recvtimeout(socketfd, total_response_header_buffer, response_header_struct_size);
-	if (printErrorAndCloseSocket(recv_bytes_for_header, socketfd) == -1) {
+	recv_bytes_for_header = recvtimeout(socketfd, (char *) &joke_header, sizeof(response_header));
+	if (printErrorAndCloseSocket(recv_bytes_for_header, socketfd) == PROCESS_SERVER_RESPONSE_ERROR) {
 		return PROCESS_SERVER_RESPONSE_ERROR;
 	}
 
-	ans = (response_header *) total_response_header_buffer;
-	if (recv_bytes_for_header < response_header_struct_size || ans->type != JOKER_RESPONSE_TYPE) {
+	int response_header_size = sizeof(response_header);
+	if (recv_bytes_for_header < response_header_size || joke_header.type != JOKER_RESPONSE_TYPE) {
 		close(socketfd);
 		fprintf(stderr, "A server did not respond with the proper header.\n");
 		return PROCESS_SERVER_RESPONSE_ERROR;
 	}
-	len_of_joke = ntohl(ans->joke_length);
+	len_of_joke = ntohl(joke_header.joke_length);
 
 	//get the joke from the server
 	do {
