@@ -7,6 +7,7 @@
 
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
@@ -52,24 +53,27 @@ int processServerResponse(int socketfd) {
 	uint32_t total_recv_bytes_for_joke = 0;
 	int left_bytes_to_read = 0;
 	int recv_bytes_for_joke;
-	char buffer[MAX_BUF_SIZE_FOR_JOKE];
-	char* chunk_response_joke_buffer = buffer;
 	char response_joke_buf[MAX_BUF_SIZE_FOR_JOKE];
-	response_joke_buf[0] = '\0';
+	char* chunk_response_joke_buffer = response_joke_buf;
 
 	//get the length of a joke from the server
-	recv_bytes_for_header = recvtimeout(socketfd, (char *) &joke_header, sizeof(response_header));
+	int response_header_size = sizeof(response_header);
+	recv_bytes_for_header = recvtimeout(socketfd, (char *) &joke_header, response_header_size);
 	if (printErrorAndCloseSocket(recv_bytes_for_header, socketfd) == PROCESS_SERVER_RESPONSE_ERROR) {
 		return PROCESS_SERVER_RESPONSE_ERROR;
 	}
 
-	int response_header_size = sizeof(response_header);
 	if (recv_bytes_for_header < response_header_size || joke_header.type != JOKER_RESPONSE_TYPE) {
 		close(socketfd);
 		fprintf(stderr, "A server did not respond with the proper header.\n");
 		return PROCESS_SERVER_RESPONSE_ERROR;
 	}
 	len_of_joke = ntohl(joke_header.joke_length);
+
+	//if the length is bigger than the buffer size...
+	if (len_of_joke > MAX_BUF_SIZE_FOR_JOKE - 1) {
+		len_of_joke = MAX_BUF_SIZE_FOR_JOKE - 1;
+	}
 
 	//get the joke from the server
 	do {
@@ -79,11 +83,10 @@ int processServerResponse(int socketfd) {
 			return PROCESS_SERVER_RESPONSE_ERROR;
 		}
 		total_recv_bytes_for_joke += recv_bytes_for_joke;
-		chunk_response_joke_buffer[recv_bytes_for_joke] = '\0';
-		strcat(response_joke_buf, chunk_response_joke_buffer);
 		chunk_response_joke_buffer += recv_bytes_for_joke;
-	} while (total_recv_bytes_for_joke < len_of_joke && total_recv_bytes_for_joke < MAX_BUF_SIZE_FOR_JOKE);
+	} while (total_recv_bytes_for_joke < len_of_joke);
 
+	response_joke_buf[len_of_joke] = '\0';
 	printf("The whole joke: %s\n", response_joke_buf);
 	close(socketfd);
 	return 0;
@@ -122,22 +125,22 @@ int main(int argc, char *argv[]) {
 	last_name_pointer = removeNewLine(last_name_pointer);
 
 	uint8_t first_name_length = strlen(first_name_pointer);
-	uint8_t second_name_length = strlen(last_name_pointer);
+	uint8_t last_name_length = strlen(last_name_pointer);
 	request_struct_size = sizeof(struct request_header);
-	int buffer_size = request_struct_size + first_name_length + second_name_length;
-	char buffer[buffer_size];
+	int buffer_size = request_struct_size + first_name_length + last_name_length;
+	char *buffer = (char *) malloc(buffer_size);
 	request_msg = (request_header *) buffer;
 
 	request_msg->type = JOKER_REQUEST_TYPE;
 	request_msg->len_first_name = first_name_length;
-	request_msg->len_last_name = second_name_length;
+	request_msg->len_last_name = last_name_length;
 
 	char * payload = buffer + request_struct_size;
-
-	strncpy(payload, first_name_pointer, first_name_length + 1);
-	strcat(payload, last_name_pointer);
+	strncpy(payload, first_name_pointer, first_name_length);
+	strncpy(payload + first_name_length, last_name_pointer, last_name_length);
 
 	socketfd = setupSocketAndConnect(argv, buffer, buffer_size);
+	free(buffer);
 	if (socketfd != -1) {
 		if (processServerResponse(socketfd) != 0) {
 			return 1;	//error in processing response

@@ -47,6 +47,10 @@ int setupSocketAndConnect(char *argv[], char *buffer, int buffer_size) {
 	}
 
 	socketfd = socket(servinfo->ai_family, servinfo->ai_socktype, servinfo->ai_protocol);
+	if (socketfd == -1) {
+		fprintf(stderr, "Socket not created.\n");
+		return -1;
+	}
 
 	timeout.tv_sec = TIMEOUT_VALUE_SEC;
 	timeout.tv_usec = 0;
@@ -54,11 +58,6 @@ int setupSocketAndConnect(char *argv[], char *buffer, int buffer_size) {
 
 	if (socketopt != 0) {
 		fprintf(stderr, "Warning, socket option was not set.\n");
-	}
-
-	if (socketfd == -1) {
-		fprintf(stderr, "Socket not created.\n");
-		return -1;
 	}
 
 	// connect!
