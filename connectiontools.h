@@ -23,6 +23,14 @@
 #define TIMEOUT_VALUE_SEC 3
 #define TCP_FAST_OPEN false
 
+/**
+ * A method for establishing the socket connection and sending a buffer content to the host
+ *
+ * parameters argv[] should contain the host address and the port number of a server,
+ * buffer delivers the data which is supposed to be sent of a size buffer_size
+ *
+ * returns a socket descriptor socketfd
+ */
 int setupSocketAndConnect(char *argv[], char *buffer, int buffer_size) {
 	//connecion data
 	int addrinfo_status;
@@ -82,7 +90,15 @@ int setupSocketAndConnect(char *argv[], char *buffer, int buffer_size) {
 	return socketfd;
 }
 
-int recvtimeout(int socketfd, char *buf, int len) {
+/**
+ * A method receiving data from the server with the timeout value extracted from the socket
+ *
+ * parameters socketfd is a socket descriptor
+ * buf is a buffer to place the information of size len sent by the server
+ *
+ * returns the number of bytes received from the host
+ */
+int recvtimeout(int socketfd, char *buf, int len) { //TODO: delete
 	fd_set fds;
 	int select_result;
 	int getsockopt_result;

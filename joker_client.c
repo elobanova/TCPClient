@@ -21,6 +21,13 @@
 #define MAX_BUF_SIZE_FOR_JOKE 1024
 #define PROCESS_SERVER_RESPONSE_ERROR -1
 
+/**
+ * Checks if there was an error and prints out the error status during a data retrieval from the host
+ *
+ * parameters recv_bytes is a number of bytes sent by the server, socketfd is a socket descriptor
+ *
+ * returns PROCESS_SERVER_RESPONSE_ERROR if there was an error during communication or 0 when succeeded
+ */
 int printErrorAndCloseSocket(int recv_bytes, int socketfd) {
 	if (recv_bytes == ERROR_RESULT) {
 		close(socketfd);
@@ -43,6 +50,13 @@ int printErrorAndCloseSocket(int recv_bytes, int socketfd) {
 	return 0;
 }
 
+/**
+ * A method for receiving and printing the joke data from the host with the joke length required to be not bigger than MAX_BUF_SIZE_FOR_JOKE
+ *
+ * parameters socketfd is a socket descriptor
+ *
+ * returns PROCESS_SERVER_RESPONSE_ERROR if there was an error during communication or 0 when succeeded
+ */
 int processServerResponse(int socketfd) {
 	//header response data
 	int recv_bytes_for_header;
@@ -92,6 +106,13 @@ int processServerResponse(int socketfd) {
 	return 0;
 }
 
+/**
+ * A utility method for getting rid off the new line character at the end of a string (e.g. when reading information with fgets
+ *
+ * parameters s is a string with a probable new line symbol at the end
+ *
+ * returns a string without a new line symbol at the end
+ */
 char* removeNewLine(char *s) {
 	int len = strlen(s);
 	if (len > 0 && s[len - 1] == '\n') {
