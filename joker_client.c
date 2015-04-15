@@ -53,7 +53,7 @@ int processServerResponse(int socketfd) {
 	//header response data
 	int recv_bytes_for_header;
 	uint32_t len_of_joke = 0;
-	struct response_header joke_header;
+	response_header joke_header;
 
 	//joke response data
 	uint32_t total_recv_bytes_for_joke = 0;
@@ -139,7 +139,7 @@ int main(int argc, char *argv[]) {
 
 	uint8_t first_name_length = strlen(first_name_pointer);
 	uint8_t last_name_length = strlen(last_name_pointer);
-	request_struct_size = sizeof(struct request_header);
+	request_struct_size = sizeof(request_header);
 	int buffer_size = request_struct_size + first_name_length + last_name_length;
 	char *buffer = (char *) malloc(buffer_size);
 	request_msg = (request_header *) buffer;
