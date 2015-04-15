@@ -31,15 +31,7 @@
 int printErrorAndCloseSocket(int recv_bytes, int socketfd) {
 	if (recv_bytes == ERROR_RESULT) {
 		close(socketfd);
-		fprintf(stderr, "Error during data receive.\n");
-		return PROCESS_SERVER_RESPONSE_ERROR;
-	} else if (recv_bytes == TIMEOUT_RESULT) {
-		close(socketfd);
-		fprintf(stderr, "Timeout when receiving response.\n");
-		return PROCESS_SERVER_RESPONSE_ERROR;
-	} else if (recv_bytes == GETSOCKOPT_ERROR) {
-		close(socketfd);
-		fprintf(stderr, "Could not get the socket option.\n");
+		fprintf(stderr, "Error during data receive or timed out.\n");
 		return PROCESS_SERVER_RESPONSE_ERROR;
 	} else if (recv_bytes == CONNECTION_CLOSED_ERROR) {
 		close(socketfd);
@@ -72,7 +64,7 @@ int processServerResponse(int socketfd) {
 
 	//get the length of a joke from the server
 	int response_header_size = sizeof(response_header);
-	recv_bytes_for_header = recvtimeout(socketfd, (char *) &joke_header, response_header_size);
+	recv_bytes_for_header = recv(socketfd, (char *) &joke_header, response_header_size, 0);
 	if (printErrorAndCloseSocket(recv_bytes_for_header, socketfd) == PROCESS_SERVER_RESPONSE_ERROR) {
 		return PROCESS_SERVER_RESPONSE_ERROR;
 	}
@@ -92,7 +84,7 @@ int processServerResponse(int socketfd) {
 	//get the joke from the server
 	do {
 		left_bytes_to_read = len_of_joke - total_recv_bytes_for_joke;
-		recv_bytes_for_joke = recvtimeout(socketfd, chunk_response_joke_buffer, left_bytes_to_read);
+		recv_bytes_for_joke = recv(socketfd, chunk_response_joke_buffer, left_bytes_to_read, 0);
 		if (printErrorAndCloseSocket(recv_bytes_for_joke, socketfd) == PROCESS_SERVER_RESPONSE_ERROR) {
 			return PROCESS_SERVER_RESPONSE_ERROR;
 		}
